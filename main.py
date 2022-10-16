@@ -4,9 +4,18 @@ import shutil
 from packaging import version
 from typing import List
 
-from dep_tree import DependInfo, DependReq
+from dep_tree import DependInfo, DependReq, DependTree
 
 conda_base = "C:/Users/liuzh/miniconda3/envs"
+
+
+def info_parser(data: dict) -> DependInfo:
+    info = DependInfo(
+        name=data["name"], version=version.Version(data["version"]), files=data["files"]
+    )
+    if "link" in data.keys():
+        info.link = data["link"]["target"].replace("\\", "/")
+    return info
 
 
 def dep_parser(dep_list: list) -> List[DependReq]:
@@ -30,19 +39,7 @@ def dep_parser(dep_list: list) -> List[DependReq]:
     return re
 
 
-def test_version(v: str, dep: dict) -> bool:
-    v = version.parse(v)
-    try:
-        if "gt" in dep.keys() and v < version.parse(dep["gt"]):
-            return False
-        if "lt" in dep.keys() and v > version.parse(dep["lt"]):
-            return False
-    except:
-        print(v)
-    return True
-
-
-def search_dep(dep_list: list) -> dict:
+def search_dep(dep_list: List[DependReq]) -> dict:
     base = conda_base + "/envs/opencv"
     prefix = "/conda-meta"
     for dep in dep_list:
@@ -52,9 +49,11 @@ def search_dep(dep_list: list) -> dict:
             if len(info) < 2:
                 continue
             info = ["-".join(info[:-2]), info[-2]]
-            if info[0] == dep["name"]:
-                if not test_version(info[1], dep):
-                    print(f"depend {info} do not match req {dep}")
+            if info[0] == dep:
+                if not dep.meet(version.Version(info[1])):
+                    print(
+                        f"found depend {info}, but do not match req {dep}, continue searching"
+                    )
             if info[0] == dep["name"] and test_version(info[1], dep):
                 found_flag = True
                 yield "conda-meta/" + path
@@ -64,7 +63,7 @@ def search_dep(dep_list: list) -> dict:
             print(f'warning: deppend {dep["name"]} no found')
 
 
-def purne(dep_list: List[DependReq])->List[DependReq]:
+def purne(dep_list: List[DependReq]) -> List[DependReq]:
     ex_list = ["python", "vc", "vs2015_runtime"]
     re = []
     for dep in dep_list:
@@ -77,19 +76,19 @@ def purne(dep_list: List[DependReq])->List[DependReq]:
     return re
 
 
-def dep(path):
+def dep(path) -> DependTree:
     conda_path = conda_base + "/envs/opencv"
     in_json = {}
     with open(conda_path + "/" + path, "r") as f:
         in_json = json.load(f)
     dep_list = dep_parser(in_json["depends"])
     dep_list = purne(dep_list)
+    node = DependTree(info_parser(in_json))
     if not dep_list:
-        return set({path})
-    re = set()
+        return node
     re.update([path])
     for i in search_dep(dep_list):
-        re.update(dep(i))
+        node.append(*dep(i))
     return re
 
 

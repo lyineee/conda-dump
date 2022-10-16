@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List, Optional, Union
 from packaging import version
 
 from tree import Tree
@@ -24,7 +24,8 @@ class DependData:
 @dataclass
 class DependInfo(DependData):
     version: version.Version
-    file_list: List[str] = field(default=[])
+    link: Optional[str] = None
+    files: List[str] = field(default=[])
 
 
 @dataclass
@@ -52,8 +53,8 @@ class DependTree(Tree):
 
 
 if __name__ == "__main__":
-    d1 = DependInfo(name="dep1", version=version.Version("0.0.1"), file_list=["a", "b"])
-    d2 = DependInfo(name="dep2", version=version.Version("0.0.1"), file_list=["c", "d"])
+    d1 = DependInfo(name="dep1", version=version.Version("0.0.1"), files=["a", "b"])
+    d2 = DependInfo(name="dep2", version=version.Version("0.0.1"), files=["c", "d"])
     a = DependTree(d1)
     b = DependTree(d2)
     a.append(b)
