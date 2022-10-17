@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Optional
 from packaging import version
 
 from tree import Tree
@@ -22,26 +22,33 @@ class DependData:
 
 
 @dataclass
-class DependInfo(DependData):
-    version: version.Version
-    link: Optional[str] = None
-    files: List[str] = field(default=[])
+class DependReq(DependData):
+    gt: Optional[version.Version] = field(default=None)
+    lt: Optional[version.Version] = field(default=None)
+    ne: Optional[version.Version] = field(default=None)
+    eq: Optional[version.Version] = field(default=None)
+
+    def meet_version(self, info):
+        if self.gt and info < self.gt:
+            return False
+        if self.lt and info > self.lt:
+            return False
+        if self.ne and info == self.ne:
+            return False
+        if self.eq and info != self.eq:
+            return False
+        return True
 
 
 @dataclass
-class DependReq(DependData):
-    gt: Union[None, version.Version] = field(default=None)
-    lt: Union[None, version.Version] = field(default=None)
-    ne: Union[None, version.Version] = field(default=None)
+class DependInfo(DependData):
+    version: version.Version
+    link: Optional[str] = None
+    files: List[str] = field(default_factory=list)
+    depends: List[DependReq] = field(default_factory=list)
 
-    def meet(self, info: DependInfo):
-        if self.gt and info.version < self.gt:
-            return False
-        if self.lt and info.version > self.lt:
-            return False
-        if self.ne and info.version == self.ne:
-            return False
-        return True
+    def __str__(self):
+        return f"name: {self.name}, version: {self.version}"
 
 
 class DependTree(Tree):
