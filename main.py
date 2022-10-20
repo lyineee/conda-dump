@@ -6,12 +6,13 @@ from typing import Optional, List
 from traceback import print_exc
 
 from dep_tree import DependInfo, DependReq, DependTree
+from ziputil import compress_files, decompress_files
 
 conda_base = "~/Miniconda3"
 env_name = ""
 print_tree = False
 dry_run = False
-dump_path = "~/Document/dump"
+dump_path = "~/Documents/dump"
 
 
 def dep_info_parser(data: dict) -> DependInfo:
@@ -101,14 +102,22 @@ def get_lib(dep_tree: DependTree)->set:
         file_set.update(dep_info.files)
     return file_set
 
+def compress_all(lib_list, base):
+    base = os.path.expanduser(base)
+    conda_path = conda_base + env_name
 
-def copy_all(lib_list, base):
+def copy_all(lib_list, base, compress = True):
     base = os.path.expanduser(base)
     conda_path = conda_base + env_name
     err_count = 0
     copy_count = 0
     all_count = len(lib_list)
     progress_count = 0
+    if compress:
+        if not os.path.exists(os.path.dirname(base)):
+            os.makedirs(os.path.dirname(base))
+        compress_files(conda_path, lib_list,base)
+        return
     for file_path in lib_list:
         dir = os.path.dirname(file_path)
         src = conda_path + "/" + file_path
@@ -133,6 +142,7 @@ def copy_all(lib_list, base):
         print(f'{bar}{progress_count}/{all_count} processing "{file_name}"', end='')
         print(f'{" "*100}', end='\r') # clean line
         # print(f'{copy_count}/{all_count}  copying "{src}" to "{dst}"', end="\r")
+
     print('')
     print(f'finish copy, total: {len(lib_list)}, copy: {copy_count}, error: {err_count}')
 
@@ -155,6 +165,14 @@ def dump(package:str, exclude_list:List[str]):
     if not dry_run:
         print(f'start copying file to {dump_path}')
         copy_all(get_lib(dep_tree), dump_path)
+        
+def restore(dump_file:str):
+    conda_path = conda_base + env_name
+    dump_file = os.path.expanduser(dump_file)
+    print(f'start decompress file {dump_file} to {conda_path}')
+    if not decompress_files(dump_file, conda_path):
+        print(f'dump file {dump_file} not found')
+        sys.exit(1)
             
 def init_args():
     import argparse
@@ -188,7 +206,7 @@ def init_args():
     if args.subcommand == 'dump':
         dump(args.package, args.exclude)
     elif args.subcommand == 'restore':
-        print('not implement yet')
+        restore(args.package)
     
 
 if __name__ == "__main__":
