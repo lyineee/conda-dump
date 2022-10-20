@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 from packaging import version
 
-from tree import Tree
+from .tree import Tree
 
 
 @dataclass

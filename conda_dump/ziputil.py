@@ -24,10 +24,11 @@ def decompress_files(src, dest_dir):
         file_list = f.namelist()
         progress_count = 0
         for file in file_list:
-            f.extract(file, dest_dir)
+            progress_count += 1
+            if os.path.exists(os.path.join(dest_dir, file)):
+                f.extract(file, dest_dir)
             # progress bar
             width = 20
-            progress_count += 1
             c = int((progress_count/len(file_list))*width) + 1
             bar = '|'+(c*"-").ljust(width)  + '|'
             print(f'{bar}{progress_count}/{len(file_list)} decompressing "{os.path.split(file)[-1]}"', end='')
