@@ -3,6 +3,7 @@ import os, sys
 import shutil
 from packaging import version
 from typing import Optional, List
+from traceback import print_exc
 
 from dep_tree import DependInfo, DependReq, DependTree
 
@@ -40,34 +41,11 @@ def dep_req_parser(dep_str:str) -> DependReq:
             elif req.startswith("!="):
                 dep_req.ne = version.parse(req[2:])
             elif req[0].isdigit():
-                dep_req.eq = version.parse(req)
+                # dep_req.eq = version.parse(req)
+                pass
             else:
-                print(f"unmatch {req} in depend requirement {dep_req.name}")
+                print(f"unmatch {dep_str} in depend requirement {dep_req.name}")
     return dep_req
-
-
-def search_dep_iter(dep_req: DependReq) -> DependInfo:
-    base = conda_base + env_name
-    prefix = "/conda-meta"
-    for dep in dep_list:
-        found_flag = False
-        for path in os.listdir(base + prefix):
-            info = os.path.split(path)[-1].split("-")
-            if len(info) < 2:
-                continue
-            info = ["-".join(info[:-2]), info[-2]]
-            if info[0] == dep:
-                if not dep.meet(version.Version(info[1])):
-                    print(
-                        f"found depend {info}, but do not match req {dep}, continue searching"
-                    )
-            if info[0] == dep["name"] and test_version(info[1], dep):
-                found_flag = True
-                yield "conda-meta/" + path
-                break
-
-        if not found_flag:
-            print(f'WARN: deppend {dep["name"]} no found')
 
 def search_dep(dep_req: DependReq) -> DependInfo:
     base = conda_base  + env_name
@@ -80,16 +58,22 @@ def search_dep(dep_req: DependReq) -> DependInfo:
         if info[0] == dep_req.name:
             if not dep_req.meet_version(version.parse(info[1])):
                 print(
-                    f"found depend {info}, but do not match req {dep}, continue searching"
+                    f'found depend {info}, but do not match req {dep_req}, continue searching'
                 )
             else:
                 with open(base + "/conda-meta/" + path, 'r') as f:
-                    data = json.load(f)
+                    try:
+                        data = json.load(f)
+                    except:
+                        print(f'ERROR: parsing depend {dep_req}')
+                        print_exc()
+                        sys.exit(1)
                     return dep_info_parser(data)
                     
     print(f'WARN: deppend {dep_req} no found')
 
 
+dep_set = set()
 def dep(dep_info:DependInfo, ex_list:List[DependReq] = []) -> DependTree:
     conda_path = conda_base + env_name
     node = DependTree(dep_info)
@@ -100,10 +84,11 @@ def dep(dep_info:DependInfo, ex_list:List[DependReq] = []) -> DependTree:
             ex_flag = False
             if exclude.name == dep_req.name:
                 ex_flag = True
-        if ex_flag:
+        if ex_flag or dep_req.name in ["vs2015_runtime", "vc", "python"] or dep_req.name in dep_set:
             continue
         info = search_dep(dep_req)
-        if info.name in ["vs2015_runtime", "vc", "python"] or info in node:
+        dep_set.add(info.name)
+        if info in node:
             continue
 
         node.append(dep(info, ex_list))
